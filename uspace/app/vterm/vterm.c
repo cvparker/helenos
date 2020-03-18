@@ -55,9 +55,9 @@ int main(int argc, char *argv[])
 		return 2;
 	}
 
-	window_resize(main_window, 0, 0, 648, 508, WINDOW_PLACEMENT_ANY);
+	window_resize(main_window, 0, 0, 120*8+8, 48*20+28, WINDOW_PLACEMENT_ANY);
 	terminal_t *terminal_widget =
-	    create_terminal(window_root(main_window), NULL, 640, 480);
+	    create_terminal(window_root(main_window), NULL, 120*8, 48*20);
 	if (!terminal_widget) {
 		window_close(main_window);
 		printf("%s: Cannot create widgets.\n", NAME);

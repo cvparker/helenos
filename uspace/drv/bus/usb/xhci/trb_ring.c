@@ -354,6 +354,8 @@ errno_t xhci_event_ring_init(xhci_event_ring_t *ring, size_t initial_size)
 		xhci_fill_erst_entry(&erst[i], segment->phys, SEGMENT_TRB_COUNT);
 	}
 
+	xhci_event_ring_reset(ring);
+
 	fibril_mutex_initialize(&ring->guard);
 
 	usb_log_debug("Initialized event ring.");

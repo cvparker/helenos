@@ -60,6 +60,8 @@ extern volatile unsigned int cli_quit;
 /** Text input field. */
 static tinput_t *tinput;
 
+bool colinInit = false;
+
 /* Private helpers */
 static int run_command(char **, cliuser_t *, iostate_t *);
 static void print_pipe_usage(void);
@@ -350,6 +352,14 @@ void get_input(cliuser_t *usr)
 {
 	char *str;
 	errno_t rc;
+
+	if (!colinInit) {
+		colinInit = true;
+		str = malloc(51);
+		str_ncpy(str,51,"cat /log/xhci",50);
+		usr->line = str;
+		return;
+	}
 
 	tinput_set_prompt(tinput, usr->prompt);
 
