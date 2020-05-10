@@ -721,8 +721,8 @@ void hc_interrupt(bus_t *bus, uint32_t status)
 	status &= ~XHCI_REG_MASK(XHCI_OP_PCD);
 
 	if (status) {
-		usb_log_error("Non-zero status after interrupt handling (%08x) "
-		    " - missing something?", status);
+		/*usb_log_error("Non-zero status after interrupt handling (%08x) "
+		    " - missing something?", status);*/
 	}
 }
 

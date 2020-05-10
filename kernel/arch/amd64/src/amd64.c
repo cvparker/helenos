@@ -140,12 +140,16 @@ void amd64_post_mm_init(void)
 		/* hard clock */
 		i8254_init();
 
-#if (defined(CONFIG_FB) || defined(CONFIG_EGA))
+#ifdef CONFIG_EGA
 		bool bfb = false;
 #endif
 
 #ifdef CONFIG_FB
+#ifdef CONFIG_EGA
 		bfb = bfb_init();
+#else
+		bfb_init();
+#endif
 #endif
 
 #ifdef CONFIG_EGA

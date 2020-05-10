@@ -52,7 +52,7 @@
 
 #define FRAMES  IMAGES
 
-#define MIN_FPS  1
+#define MIN_FPS  15
 #define MAX_FPS  25
 
 #define MIN_LOAD  (LOAD_UNIT / 4)

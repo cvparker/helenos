@@ -162,10 +162,20 @@ static void irq_interrupt(unsigned int n, istate_t *istate)
 	assert(inum != IRQ_PIC1);
 
 	irq_t *irq = irq_dispatch_and_lock(inum);
+	/*if (inum == 11) {
+		log(LF_ARCH, LVL_DEBUG, "IRQ 11 came, FYI");
+	}*/
 	if (irq) {
 		/*
 		 * The IRQ handler was found.
 		 */
+		/*if (inum == 11)
+		{
+			irq_code_t *colinCode = irq->notif_cfg.code;
+			for (unsigned int colinI = 0; colinI < colinCode->cmdcount; colinI++) {
+				log(LF_ARCH, LVL_DEBUG, "N:%u,cmd:%u,addr:%p,value:%u,src:%lu,dst:%lu", colinI, colinCode->cmds[colinI].cmd, colinCode->cmds[colinI].addr, colinCode->cmds[colinI].value, colinCode->cmds[colinI].srcarg, colinCode->cmds[colinI].dstarg);
+			}
+		}*/
 
 		if (irq->preack) {
 			/* Send EOI before processing the interrupt */
