@@ -90,7 +90,7 @@ errno_t ath_usb_init(ath_t *ath, usb_device_t *usb_device, const usb_endpoint_de
 #undef _MAP_EP
 
 	ath->ctrl_response_length = 64;
-	ath->data_response_length = 512;
+	ath->data_response_length = 0x4000;/* was 512 */
 
 	ath->specific_data = ath_usb;
 	ath->ops = &ath_usb_ops;

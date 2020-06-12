@@ -209,12 +209,13 @@ static errno_t vol_part_probe(vol_part_t *part)
 	vol_volume_t *volume;
 	errno_t rc;
 
-	log_msg(LOG_DEFAULT, LVL_DEBUG, "Probe partition %s", part->svc_name);
+	log_msg(LOG_DEFAULT, LVL_NOTE, "Probe partition %s", part->svc_name);
 
 	assert(fibril_mutex_is_locked(&part->parts->lock));
 
 	fst = &fstab[0];
 	while (fst->name != NULL) {
+		log_msg(LOG_DEFAULT, LVL_NOTE, "Attempting to try fs:%s.", fst->name);
 		rc = vfs_fsprobe(fst->name, part->svc_id, &info);
 		if (rc == EOK)
 			break;

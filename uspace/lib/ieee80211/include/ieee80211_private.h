@@ -47,8 +47,8 @@
 #include <ieee80211/ieee80211.h>
 #include "ieee80211.h"
 
-/** Timeout in us for waiting to authentication/association response. */
-#define AUTH_TIMEOUT  200000
+/** Timeout in us for waiting to authentication/association response. (was 200000)*/
+#define AUTH_TIMEOUT  5000000
 
 /** Timeout in us for waiting to finish 4-way handshake process. */
 #define HANDSHAKE_TIMEOUT  5000000

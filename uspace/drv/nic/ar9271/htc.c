@@ -452,12 +452,17 @@ errno_t htc_device_init(ath_t *ath_device, ieee80211_dev_t *ieee80211_dev,
  */
 errno_t htc_init(htc_device_t *htc_device)
 {
+	int attempt_number = 5;
+	errno_t rc;
+
 	/* First check ready message in device. */
-	errno_t rc = htc_check_ready(htc_device);
-	if (rc != EOK) {
+	while((rc = htc_check_ready(htc_device)) != EOK) {
 		usb_log_error("Device is not in ready state after loading "
-		    "firmware.\n");
-		return rc;
+			"firmware.\n");
+		attempt_number--;
+		if (attempt_number <= 0)
+			return rc;
+		fibril_sleep(1);
 	}
 
 	/*

@@ -168,11 +168,16 @@ static errno_t ar9271_get_cable_state(ddf_fun_t *fun, nic_cable_state_t *state)
 	nic_t *nic_data = nic_get_from_ddf_fun(fun);
 	if (!nic_data)
 		return ENOENT;
-	ar9271_t *ar9271 = nic_get_specific(nic_data);
+	/*ar9271_t *ar9271 = nic_get_specific(nic_data);
 	if (!ar9271)
 		return ENOENT;
 
-	if (ieee80211_is_connected(ar9271->ieee80211_dev))
+	if (ieee80211_is_connected(ar9271->ieee80211_dev))*/
+	ieee80211_dev_t *ieee80211_dev = nic_get_specific(nic_data);
+	if (!ieee80211_dev)
+		return ENOENT;
+
+	if (ieee80211_is_connected(ieee80211_dev))
 		*state = NIC_CS_PLUGGED;
 	else
 		*state = NIC_CS_UNPLUGGED;
@@ -276,27 +281,55 @@ static errno_t ar9271_data_polling(void *arg)
 	size_t buffer_size = ar9271->ath_device->data_response_length;
 	void *buffer = malloc(buffer_size);
 
+	size_t strip_length =
+		sizeof(ath_usb_data_header_t) +
+		sizeof(htc_frame_header_t) +
+		sizeof(htc_rx_status_t);
+
+	size_t offset = 0;
+	size_t next_offset = 0;
+	size_t transferred_size = 0;
+
 	while (true) {
-		size_t transferred_size;
-		if (htc_read_data_message(ar9271->htc_device,
-		    buffer, buffer_size, &transferred_size) == EOK) {
-			size_t strip_length =
-			    sizeof(ath_usb_data_header_t) +
-			    sizeof(htc_frame_header_t) +
-			    sizeof(htc_rx_status_t);
+		offset = next_offset;
+		/* if the buffer is used up, refill it */
+		if (offset + sizeof(ath_usb_data_header_t) >= transferred_size) {
+			if (htc_read_data_message(ar9271->htc_device,
+			    buffer, buffer_size, &transferred_size) == EOK) {
 
-			if (transferred_size < strip_length)
-				continue;
+				offset = 0;
 
-			ath_usb_data_header_t *data_header =
-			    (ath_usb_data_header_t *) buffer;
+				if (transferred_size >= buffer_size) {
+					usb_log_info("buffer filled up");
+				}
+
+				if (transferred_size < sizeof(ath_usb_data_header_t)) {
+					continue;
+				}
+			}
+		}
+		ath_usb_data_header_t *data_header =
+			(ath_usb_data_header_t *)(buffer + offset);
+		uint16_t full_data_length = uint16_t_le2host(data_header->length) +
+			sizeof(ath_usb_data_header_t);
+
+		if (offset + full_data_length <= transferred_size) {
+			/* round to 32-bit alignment */
+			full_data_length = (full_data_length + 3) & ~0x3;
+			next_offset = offset + full_data_length;
 
 			/* Invalid packet. */
-			if (data_header->tag != uint16_t_le2host(RX_TAG))
+			if (data_header->tag != uint16_t_le2host(RX_TAG)) {
+				usb_log_info("invalid packet");
 				continue;
+			}
+
+			if (transferred_size - offset < strip_length) {
+				continue;
+			}
 
 			htc_rx_status_t *rx_status =
-			    (htc_rx_status_t *) ((void *) buffer +
+			    (htc_rx_status_t *) ((void *) buffer + offset +
 			    sizeof(ath_usb_data_header_t) +
 			    sizeof(htc_frame_header_t));
 
@@ -304,22 +337,39 @@ static errno_t ar9271_data_polling(void *arg)
 			    uint16_t_be2host(rx_status->data_length);
 
 			int16_t payload_length =
-			    transferred_size - strip_length;
+			    transferred_size - offset - strip_length;
 
-			if (payload_length - data_length < 0)
+			if (payload_length - data_length < 0) {
+				usb_log_info("unexpected short packet");
 				continue;
+			}
 
-			if (ar9271_rx_status_error(rx_status->status))
+/*			if (transferred_size - offset - full_data_length > 0) {
+				usb_log_info("unexpected long packet, full_data_length %" PRIu16 " transferred_size %zu.", full_data_length, transferred_size);
+				ath_usb_data_header_t *next_header = (ath_usb_data_header_t *)(buffer + next_offset);
+				usb_log_info("old data_header->tag %" PRIx16 " old data_header->length %" PRIu16 ".",
+					uint16_t_le2host(data_header->tag), uint16_t_le2host(data_header->length));
+				usb_log_info("new data_header->tag %" PRIx16 " new data_header->length %" PRIu16 ".",
+					uint16_t_le2host(next_header->tag), uint16_t_le2host(next_header->length));
+			}*/
+
+			if (ar9271_rx_status_error(rx_status->status)) {
 				continue;
+			}
 
-			void *strip_buffer = buffer + strip_length;
+			void *strip_buffer = buffer + offset + strip_length;
 
 			ieee80211_rx_handler(ar9271->ieee80211_dev,
 			    strip_buffer,
 			    payload_length);
+		} else /* i.e. offset + full_data_length > transferred_size */ {
+			/* unexpectedely terminated data */
+			/* reset to re-read the buffer for next round */
+			transferred_size = 0;
 		}
 	}
 
+	/* not reached (?) */
 	free(buffer);
 
 	return EOK;
@@ -541,6 +591,7 @@ static errno_t ar9271_ieee80211_tx_handler(ieee80211_dev_t *ieee80211_dev,
 	ar9271_t *ar9271 = (ar9271_t *) ieee80211_get_specific(ieee80211_dev);
 
 	uint16_t frame_ctrl = *((uint16_t *) buffer);
+	/*usb_log_info("Sending a packet of type %" PRIx16 ".", frame_ctrl);*/
 	if (ieee80211_is_data_frame(frame_ctrl)) {
 		offset = sizeof(htc_tx_data_header_t) +
 		    sizeof(htc_frame_header_t);
@@ -680,8 +731,10 @@ static errno_t ar9271_init(ar9271_t *ar9271, usb_device_t *usb_device, const usb
 	ar9271->starting_up = true;
 	ar9271->usb_device = usb_device;
 
+	usb_log_info("ar9271_init start.");
 	fibril_mutex_initialize(&ar9271->ar9271_lock);
 
+	usb_log_info("calloc");
 	ar9271->ath_device = calloc(1, sizeof(ath_t));
 	if (!ar9271->ath_device) {
 		usb_log_error("Failed to allocate memory for ath device "
@@ -689,6 +742,7 @@ static errno_t ar9271_init(ar9271_t *ar9271, usb_device_t *usb_device, const usb
 		return ENOMEM;
 	}
 
+	usb_log_info("ath_usb_init");
 	errno_t rc = ath_usb_init(ar9271->ath_device, usb_device, endpoints);
 	if (rc != EOK) {
 		free(ar9271->ath_device);
@@ -696,6 +750,7 @@ static errno_t ar9271_init(ar9271_t *ar9271, usb_device_t *usb_device, const usb
 		return rc;
 	}
 
+	usb_log_info("IEEE 802.11 framework structure initialization");
 	/* IEEE 802.11 framework structure initialization. */
 	ar9271->ieee80211_dev = ieee80211_device_create();
 	if (!ar9271->ieee80211_dev) {
@@ -705,6 +760,7 @@ static errno_t ar9271_init(ar9271_t *ar9271, usb_device_t *usb_device, const usb
 		return ENOMEM;
 	}
 
+	usb_log_info("ieee80211_device_init");
 	rc = ieee80211_device_init(ar9271->ieee80211_dev, ar9271->ddf_dev);
 	if (rc != EOK) {
 		free(ar9271->ieee80211_dev);
@@ -714,6 +770,7 @@ static errno_t ar9271_init(ar9271_t *ar9271, usb_device_t *usb_device, const usb
 		return rc;
 	}
 
+	usb_log_info("ieee80211_set_specific");
 	ieee80211_set_specific(ar9271->ieee80211_dev, ar9271);
 
 	/* HTC device structure initialization. */
@@ -726,6 +783,7 @@ static errno_t ar9271_init(ar9271_t *ar9271, usb_device_t *usb_device, const usb
 		return ENOMEM;
 	}
 
+	usb_log_info("htc_device_init");
 	rc = htc_device_init(ar9271->ath_device, ar9271->ieee80211_dev,
 	    ar9271->htc_device);
 	if (rc != EOK) {
@@ -736,6 +794,7 @@ static errno_t ar9271_init(ar9271_t *ar9271, usb_device_t *usb_device, const usb
 		return rc;
 	}
 
+	usb_log_info("returning");
 	return EOK;
 }
 
@@ -841,15 +900,19 @@ static errno_t ar9271_upload_fw(ar9271_t *ar9271)
  */
 static ar9271_t *ar9271_create_dev_data(ddf_dev_t *dev)
 {
+	usb_device_t *usb_device;
+
 	/* USB framework initialization. */
 	const char *err_msg = NULL;
-	errno_t rc = usb_device_create_ddf(dev, endpoints, &err_msg);
+	usb_log_info("usb_device_create_ddf");
+	errno_t rc = usb_device_create_ddf_secondary(dev, endpoints, &usb_device, &err_msg);
 	if (rc != EOK) {
 		usb_log_error("Failed to create USB device: %s, "
 		    "ERR_NUM = %s\n", err_msg, str_error_name(rc));
 		return NULL;
 	}
 
+	usb_log_info("AR9271 structure initialization.");
 	/* AR9271 structure initialization. */
 	ar9271_t *ar9271 = calloc(1, sizeof(ar9271_t));
 	if (!ar9271) {
@@ -860,7 +923,8 @@ static ar9271_t *ar9271_create_dev_data(ddf_dev_t *dev)
 
 	ar9271->ddf_dev = dev;
 
-	rc = ar9271_init(ar9271, usb_device_get(dev), endpoints);
+	usb_log_info("ar9271_init");
+	rc = ar9271_init(ar9271, usb_device, endpoints);
 	if (rc != EOK) {
 		free(ar9271);
 		usb_log_error("Failed to initialize AR9271 structure: %s\n",
@@ -890,6 +954,8 @@ static void ar9271_delete_dev_data(ar9271_t *ar9271)
  */
 static errno_t ar9271_add_device(ddf_dev_t *dev)
 {
+	usb_log_info("Trying to add device.");
+
 	assert(dev);
 
 	/* Allocate driver data for the device. */

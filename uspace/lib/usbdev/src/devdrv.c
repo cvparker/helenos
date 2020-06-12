@@ -516,8 +516,9 @@ static errno_t usb_device_get_info(async_sess_t *sess, usb_device_t *dev)
 	return ret;
 }
 
-errno_t usb_device_create_ddf(ddf_dev_t *ddf_dev,
-    const usb_endpoint_description_t **desc, const char **err)
+errno_t usb_device_create_ddf_secondary(ddf_dev_t *ddf_dev,
+    const usb_endpoint_description_t **desc, usb_device_t **usb_dev_out,
+	const char **err)
 {
 	assert(ddf_dev);
 	assert(err);
@@ -526,11 +527,20 @@ errno_t usb_device_create_ddf(ddf_dev_t *ddf_dev,
 	if (sess == NULL)
 		return ENOMEM;
 
-	usb_device_t *usb_dev =
-	    ddf_dev_data_alloc(ddf_dev, sizeof(usb_device_t));
-	if (usb_dev == NULL) {
-		*err = "DDF data alloc";
-		return ENOMEM;
+	usb_device_t *usb_dev;
+	if(usb_dev_out) {
+		usb_dev = calloc(1, sizeof(usb_device_t));
+		if (usb_dev == NULL) {
+			*err = "DDF data_alloc";
+			return ENOMEM;
+		}
+		*usb_dev_out = usb_dev;
+	} else {
+		usb_dev = ddf_dev_data_alloc(ddf_dev, sizeof(usb_device_t));
+		if (usb_dev == NULL) {
+			*err = "DDF data alloc";
+			return ENOMEM;
+		}
 	}
 
 	const errno_t ret = usb_device_get_info(sess, usb_dev);

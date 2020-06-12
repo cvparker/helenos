@@ -28,7 +28,7 @@ lpt2:
 	irq 5
 
 i8042:
-	match 100 isa/i8042
+	match 0 isa/i8042
 	irq 1
 	irq 12
 	io_range 060 5

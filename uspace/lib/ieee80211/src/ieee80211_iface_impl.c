@@ -39,6 +39,7 @@
 #include <errno.h>
 #include <ieee80211_private.h>
 #include <ieee80211_iface_impl.h>
+#include <ddf/log.h>
 
 /** Implementation of fetching scan results.
  *
@@ -123,12 +124,14 @@ static errno_t ieee80211_connect_proc(ieee80211_dev_t *ieee80211_dev,
 	    IEEE80211_AUTH_AUTHENTICATED) {
 		ieee80211_set_auth_phase(ieee80211_dev,
 		    IEEE80211_AUTH_DISCONNECTED);
-		return EINVAL;
+		return ESTALL;/* was EINVAL */
 	}
 
+	ddf_msg(LVL_NOTE, "Preparing to associate.");
 	/* Try to associate. */
 	ieee80211_associate(ieee80211_dev, password);
 
+	ddf_msg(LVL_NOTE, "Waiting to see if association worked.");
 	fibril_mutex_lock(&ieee80211_dev->gen_mutex);
 	rc = fibril_condvar_wait_timeout(&ieee80211_dev->gen_cond,
 	    &ieee80211_dev->gen_mutex, AUTH_TIMEOUT);
@@ -141,7 +144,7 @@ static errno_t ieee80211_connect_proc(ieee80211_dev_t *ieee80211_dev,
 	    IEEE80211_AUTH_ASSOCIATED) {
 		ieee80211_set_auth_phase(ieee80211_dev,
 		    IEEE80211_AUTH_DISCONNECTED);
-		return EINVAL;
+		return ENAK;/* was EINVAL */
 	}
 
 	/* On open network, we are finished. */

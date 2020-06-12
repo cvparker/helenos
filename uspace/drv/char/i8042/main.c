@@ -105,6 +105,7 @@ static errno_t i8042_dev_add(ddf_dev_t *device)
 	if (!device)
 		return EINVAL;
 
+	ddf_msg(LVL_NOTE, "Attempting to get registers.");
 	rc = get_my_registers(device, &io_regs, &kbd, &mouse);
 	if (rc != EOK) {
 		ddf_msg(LVL_ERROR, "Failed to get registers: %s.",
@@ -112,7 +113,7 @@ static errno_t i8042_dev_add(ddf_dev_t *device)
 		return rc;
 	}
 
-	ddf_msg(LVL_DEBUG,
+	ddf_msg(LVL_NOTE, /* was LVL_DEBUG */
 	    "I/O regs at %p (size %zuB), IRQ kbd %d, IRQ mouse %d.",
 	    RNGABSPTR(io_regs), RNGSZ(io_regs), kbd, mouse);
 
@@ -121,7 +122,7 @@ static errno_t i8042_dev_add(ddf_dev_t *device)
 		ddf_msg(LVL_ERROR, "Out of memory.");
 		return ENOMEM;
 	}
-
+	
 	rc = i8042_init(i8042, &io_regs, kbd, mouse, device);
 	if (rc != EOK) {
 		ddf_msg(LVL_ERROR, "Failed to initialize i8042 driver: %s.",

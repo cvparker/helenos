@@ -157,7 +157,7 @@ static errno_t dhcp_send_discover(dhcp_link_t *dlink)
 	hdr->op = op_bootrequest;
 	hdr->htype = 1; /* AHRD_ETHERNET */
 	hdr->hlen = sizeof(addr48_t);
-	hdr->xid = host2uint32_t_be(42);
+	hdr->xid = host2uint32_t_be(0x3903F326); /* was 42 (why?) */
 	hdr->flags = flag_broadcast;
 
 	addr48(dlink->link_info.mac_addr, hdr->chaddr);
@@ -166,9 +166,13 @@ static errno_t dhcp_send_discover(dhcp_link_t *dlink)
 	opt[0] = opt_msg_type;
 	opt[1] = 1;
 	opt[2] = msg_dhcpdiscover;
-	opt[3] = opt_end;
+	opt[3] = opt_host_name;
+	opt[4] = 7;
+	opt[5] = 'H'; opt[6] = 'e'; opt[7] = 'l'; opt[8] = 'e'; opt[9] = 'n';
+	opt[10] = 'O'; opt[11] = 'S';
+	opt[12] = opt_end;
 
-	return dhcp_send(&dlink->dt, msgbuf, sizeof(dhcp_hdr_t) + 4);
+	return dhcp_send(&dlink->dt, msgbuf, sizeof(dhcp_hdr_t) + 13);
 }
 
 static errno_t dhcp_send_request(dhcp_link_t *dlink, dhcp_offer_t *offer)

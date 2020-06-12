@@ -103,6 +103,8 @@ enum dhcp_option_code {
 	opt_router = 3,
 	/** Domain name server */
 	opt_dns_server = 6,
+	/** Host name */
+	opt_host_name = 12,
 	/** Requested IP address */
 	opt_req_ip_addr = 50,
 	/** DHCP message type */

@@ -143,6 +143,7 @@ errno_t ahci_get_block_size(async_sess_t *sess, size_t *blocks_size)
 errno_t ahci_read_blocks(async_sess_t *sess, uint64_t blocknum, size_t count,
     void *buf)
 {
+	/*fprintf(stderr, "ahci_read_blocks called with sess=%p, blocknum=%" PRIu64 ", count=%zu, buf=%p\n", sess, blocknum, count, buf);*/
 	async_exch_t *exch = async_exchange_begin(sess);
 	if (!exch)
 		return EINVAL;
@@ -151,7 +152,9 @@ errno_t ahci_read_blocks(async_sess_t *sess, uint64_t blocknum, size_t count,
 	req = async_send_4(exch, DEV_IFACE_ID(AHCI_DEV_IFACE),
 	    IPC_M_AHCI_READ_BLOCKS, HI(blocknum),  LO(blocknum), count, NULL);
 
+	/*fprintf(stderr, "enter to aysnc_share_out_start.\n");*/
 	async_share_out_start(exch, buf, AS_AREA_READ | AS_AREA_WRITE);
+	/*fprintf(stderr, "return from async_share_out_start.\n");*/
 
 	async_exchange_end(exch);
 

@@ -46,6 +46,8 @@
 #include <ieee80211_private.h>
 #include <ops/ieee80211.h>
 
+#include <ddf/log.h>
+
 #define IEEE80211_DATA_RATES_SIZE      8
 #define IEEE80211_EXT_DATA_RATES_SIZE  4
 
@@ -754,6 +756,8 @@ errno_t ieee80211_device_init(ieee80211_dev_t *ieee80211_dev, ddf_dev_t *ddf_dev
 	if (!nic)
 		return ENOMEM;
 
+	/*return ESTALL;*/
+
 	nic_set_specific(nic, ieee80211_dev);
 
 	return EOK;
@@ -1015,7 +1019,8 @@ errno_t ieee80211_associate(ieee80211_dev_t *ieee80211_dev, char *password)
 	ieee80211_assoc_req_body_t *assoc_body =
 	    (ieee80211_assoc_req_body_t *)
 	    (buffer + sizeof(ieee80211_mgmt_header_t));
-	assoc_body->listen_interval = host2uint16_t_le(1);
+	assoc_body->listen_interval = host2uint16_t_le(10);
+	assoc_body->capability = host2uint16_t_le(0x0431);  /* copied from response frame */
 
 	/* Jump to payload. */
 	void *it = buffer + sizeof(ieee80211_mgmt_header_t) +
@@ -1364,6 +1369,7 @@ static errno_t ieee80211_process_assoc_response(ieee80211_dev_t *ieee80211_dev,
 	    (ieee80211_assoc_resp_body_t *) ((void *) mgmt_header +
 	    sizeof(ieee80211_mgmt_header_t));
 
+	ddf_msg(LVL_NOTE, "Response received, capability:%" PRIx16 ", status:%" PRIx16 ", aid:%" PRIx16 ".", assoc_resp->capability, assoc_resp->status, assoc_resp->aid);
 	if (assoc_resp->status != 0)
 		ieee80211_set_auth_phase(ieee80211_dev,
 		    IEEE80211_AUTH_DISCONNECTED);
@@ -1656,7 +1662,23 @@ static errno_t ieee80211_process_data(ieee80211_dev_t *ieee80211_dev,
 			return ieee80211_process_eapol_frame(ieee80211_dev,
 			    buffer + strip_length + sizeof(uint16_t),
 			    buffer_size - strip_length - sizeof(uint16_t));
+		/*ddf_msg(LVL_NOTE, "Received a packet with EtherType:%" PRIx16 ".", uint16_t_be2host(*proto));
+		if (uint16_t_be2host(*proto) == 0x800) {
+			uint8_t *my_dumper = (uint8_t *)(buffer + strip_length + 2);
 
+			size_t dump_size = buffer_size - strip_length - 2;
+			size_t dump_incr = 16;
+			size_t dump_index;
+
+			for (dump_index = 0; dump_index + dump_incr <= dump_size; dump_index += dump_incr) {
+				ddf_msg(LVL_NOTE, "%02" PRIx8 "%02" PRIx8 "%02" PRIx8 "%02" PRIx8 "%02" PRIx8 "%02" PRIx8 "%02" PRIx8 "%02" PRIx8
+					"%02" PRIx8 "%02" PRIx8 "%02" PRIx8 "%02" PRIx8 "%02" PRIx8 "%02" PRIx8 "%02" PRIx8 "%02" PRIx8,
+					my_dumper[dump_index+0], my_dumper[dump_index+1], my_dumper[dump_index+2], my_dumper[dump_index+3],
+					my_dumper[dump_index+4], my_dumper[dump_index+5], my_dumper[dump_index+6], my_dumper[dump_index+7],
+					my_dumper[dump_index+8], my_dumper[dump_index+9], my_dumper[dump_index+10], my_dumper[dump_index+11],
+					my_dumper[dump_index+12], my_dumper[dump_index+13], my_dumper[dump_index+14], my_dumper[dump_index+15]);
+			}
+		}*/
 		/*
 		 * Note: ETH protocol ID is already there, so we don't create
 		 * whole ETH header.

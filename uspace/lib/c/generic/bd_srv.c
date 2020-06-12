@@ -40,6 +40,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <as.h>
+
 #include <bd_srv.h>
 
 static void bd_read_blocks_srv(bd_srv_t *srv, ipc_call_t *call)
@@ -59,8 +61,12 @@ static void bd_read_blocks_srv(bd_srv_t *srv, ipc_call_t *call)
 		return;
 	}
 
-	buf = malloc(size);
-	if (buf == NULL) {
+	/*buf = malloc(size);
+	if (buf == NULL) { */
+	buf = as_area_create(AS_AREA_ANY, size,
+		AS_AREA_READ | AS_AREA_WRITE | AS_AREA_CACHEABLE,
+		AS_AREA_UNPAGED);
+	if (buf == AS_MAP_FAILED) {
 		async_answer_0(&rcall, ENOMEM);
 		async_answer_0(call, ENOMEM);
 		return;
@@ -69,7 +75,8 @@ static void bd_read_blocks_srv(bd_srv_t *srv, ipc_call_t *call)
 	if (srv->srvs->ops->read_blocks == NULL) {
 		async_answer_0(&rcall, ENOTSUP);
 		async_answer_0(call, ENOTSUP);
-		free(buf);
+		as_area_destroy(buf);
+		/*free(buf);*/
 		return;
 	}
 
@@ -77,13 +84,15 @@ static void bd_read_blocks_srv(bd_srv_t *srv, ipc_call_t *call)
 	if (rc != EOK) {
 		async_answer_0(&rcall, ENOMEM);
 		async_answer_0(call, ENOMEM);
-		free(buf);
+		as_area_destroy(buf);
+		/*free(buf);*/
 		return;
 	}
 
 	async_data_read_finalize(&rcall, buf, size);
 
-	free(buf);
+	as_area_destroy(buf);
+	/*free(buf);*/
 	async_answer_0(call, EOK);
 }
 
@@ -159,19 +168,37 @@ static void bd_write_blocks_srv(bd_srv_t *srv, ipc_call_t *call)
 	ba = MERGE_LOUP32(ipc_get_arg1(call), ipc_get_arg2(call));
 	cnt = ipc_get_arg3(call);
 
-	rc = async_data_write_accept(&data, false, 0, 0, 0, &size);
+	ipc_call_t recv_call;
+
+	if (!async_data_write_receive(&recv_call, &size)) {
+		async_answer_0(&recv_call, EINVAL);
+		return;
+	}
+
+	data = as_area_create(AS_AREA_ANY, size,
+		AS_AREA_READ | AS_AREA_WRITE | AS_AREA_CACHEABLE,
+		AS_AREA_UNPAGED);
+
+	if (data == NULL) {
+		async_answer_0(&recv_call, ENOMEM);
+		return;
+	}
+
+	rc = async_data_write_finalize(&recv_call, data, size);
 	if (rc != EOK) {
+		as_area_destroy(data);
 		async_answer_0(call, rc);
 		return;
 	}
 
 	if (srv->srvs->ops->write_blocks == NULL) {
+		/* memory leak ? */
 		async_answer_0(call, ENOTSUP);
 		return;
 	}
 
 	rc = srv->srvs->ops->write_blocks(srv, ba, cnt, data, size);
-	free(data);
+	as_area_destroy(data);
 	async_answer_0(call, rc);
 }
 

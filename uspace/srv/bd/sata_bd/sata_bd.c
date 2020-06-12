@@ -47,6 +47,9 @@
 #include <macros.h>
 #include <task.h>
 
+#include <libarch/config.h>
+#include <io/log.h>
+
 #include <ahci_iface.h>
 #include "sata_bd.h"
 
@@ -77,6 +80,7 @@ static bd_ops_t sata_bd_ops = {
 
 static sata_bd_dev_t *bd_srv_sata(bd_srv_t *bd)
 {
+	/*fprintf(stderr,"bd_srv_sata called.\n");*/
 	return (sata_bd_dev_t *) bd->srvs->sarg;
 }
 
@@ -171,6 +175,7 @@ static void sata_bd_connection(ipc_call_t *icall, void *arg)
 	service_id_t dsid;
 	int disk_id, i;
 
+	/*fprintf(stderr,"sata_bd_connection called.\n");*/
 	/* Get the device service ID. */
 	dsid = ipc_get_arg2(icall);
 
@@ -209,6 +214,12 @@ static errno_t sata_bd_read_blocks(bd_srv_t *bd, aoff64_t ba, size_t cnt, void *
 	if (size < cnt * sbd->block_size)
 		return EINVAL;
 
+	if ((uintptr_t)buf & (PAGE_SIZE - 1))
+	{
+		log_msg(LOG_DEFAULT, LVL_NOTE, "Non-aligned page on read");
+		return EINVAL;
+	}
+
 	return ahci_read_blocks(sbd->sess, ba, cnt, buf);
 }
 
@@ -221,12 +232,19 @@ static errno_t sata_bd_write_blocks(bd_srv_t *bd, aoff64_t ba, size_t cnt,
 	if (size < cnt * sbd->block_size)
 		return EINVAL;
 
+	if ((uintptr_t)buf & (PAGE_SIZE - 1))
+	{
+		log_msg(LOG_DEFAULT, LVL_NOTE, "Non-aligned page on write");
+		return EINVAL;
+	}
+
 	return ahci_write_blocks(sbd->sess, ba, cnt, (void *)buf);
 }
 
 /** Get device block size. */
 static errno_t sata_bd_get_block_size(bd_srv_t *bd, size_t *rsize)
 {
+	/*fprintf(stderr,"sata_bd_get_block_size called.\n");*/
 	sata_bd_dev_t *sbd = bd_srv_sata(bd);
 
 	*rsize = sbd->block_size;
@@ -236,6 +254,7 @@ static errno_t sata_bd_get_block_size(bd_srv_t *bd, size_t *rsize)
 /** Get number of blocks on device. */
 static errno_t sata_bd_get_num_blocks(bd_srv_t *bd, aoff64_t *rnb)
 {
+	/*fprintf(stderr,"sata_bd_get_num_blocks called.\n");*/
 	sata_bd_dev_t *sbd = bd_srv_sata(bd);
 
 	*rnb = sbd->blocks;
@@ -284,8 +303,18 @@ int main(int argc, char **argv)
 	}
 
 	printf(NAME ": Accepting connections\n");
+
+	if (log_init(NAME) != EOK) {
+		printf(NAME ": Failed to initialize logging.\n");
+		return 1;
+	}
+
+	log_msg(LOG_DEFAULT, LVL_NOTE, "Accepting connections");
+
 	task_retval(0);
+	/*fprintf(stderr, "task_retval complete.\n");*/
 	async_manager();
+	/*fprintf(stderr, "async_manager complete (not expected).\n");*/
 
 	/* Not reached */
 	return 0;

@@ -58,8 +58,14 @@ typedef struct {
 typedef struct usb_device usb_device_t;
 
 /* DDF parts */
-errno_t usb_device_create_ddf(ddf_dev_t *,
-    const usb_endpoint_description_t **, const char **);
+errno_t usb_device_create_ddf_secondary(ddf_dev_t *,
+    const usb_endpoint_description_t **, usb_device_t **, const char **);
+static inline errno_t usb_device_create_ddf(ddf_dev_t *ddf_dev,
+    const usb_endpoint_description_t **desc, const char **err)
+{
+		return usb_device_create_ddf_secondary(ddf_dev, desc, NULL, err);
+}
+
 void usb_device_destroy_ddf(ddf_dev_t *);
 
 static inline usb_device_t *usb_device_get(ddf_dev_t *dev)

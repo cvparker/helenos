@@ -53,6 +53,8 @@
 #include <macros.h>
 #include <unaligned.h>
 
+#include <io/log.h>
+
 #include "cdfs.h"
 #include "cdfs_endian.h"
 
@@ -1091,6 +1093,8 @@ static errno_t cdfs_fsprobe(service_id_t service_id, vfs_fs_probe_info_t *info)
 {
 	char *vol_ident;
 
+	log_init("CDFS");
+	log_msg(LOG_DEFAULT, LVL_NOTE, "cdfs_fsprobe called.");
 	/* Initialize the block layer */
 	errno_t rc = block_init(service_id, BLOCK_SIZE);
 	if (rc != EOK)
@@ -1098,6 +1102,7 @@ static errno_t cdfs_fsprobe(service_id_t service_id, vfs_fs_probe_info_t *info)
 
 	cdfs_lba_t altroot = 0;
 
+	log_msg(LOG_DEFAULT, LVL_NOTE, "Reading the TOC.");
 	/*
 	 * Read TOC multisession information and get the start address
 	 * of the first track in the last session
@@ -1108,6 +1113,7 @@ static errno_t cdfs_fsprobe(service_id_t service_id, vfs_fs_probe_info_t *info)
 	if (rc == EOK && (uint16_t_be2host(toc.toc_len) == 10))
 		altroot = uint32_t_be2host(toc.ftrack_lsess.start_addr);
 
+	log_msg(LOG_DEFAULT, LVL_NOTE, "Now preparing to block_cache_init, altroot=%" PRIx32 ".", altroot);
 	/* Initialize the block cache */
 	rc = block_cache_init(service_id, BLOCK_SIZE, 0, CACHE_MODE_WT);
 	if (rc != EOK) {
@@ -1125,6 +1131,7 @@ static errno_t cdfs_fsprobe(service_id_t service_id, vfs_fs_probe_info_t *info)
 		return EOK;
 	}
 
+	log_msg(LOG_DEFAULT, LVL_NOTE, "Preparing to Read volume descriptors.");
 	/* Read volume descriptors */
 	uint32_t rlba;
 	uint32_t rsize;
