@@ -283,6 +283,11 @@ errno_t endpoint_send_batch(endpoint_t *ep, const transfer_request_t *req)
 		usb_log_warning("Batch %p failed to schedule: %s", batch, str_error(ret));
 		usb_transfer_batch_destroy(batch);
 	}
+	/*if(ep->transfer_type != USB_TRANSFER_CONTROL) {
+		usb_log_info("%s %d:%d %zu/%zuB scheduled", req->name,
+			req->target.address, req->target.endpoint,
+			req->size, ep->max_packet_size);
+	}*/
 
 	return ret;
 }

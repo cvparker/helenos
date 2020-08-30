@@ -39,6 +39,8 @@
 #include <errno.h>
 #include <devman.h>
 #include <as.h>
+#include <io/log.h>
+#include <fibril.h>
 
 #include "usbhc_iface.h"
 #include "ddf/driver.h"
@@ -392,6 +394,8 @@ static async_transaction_t *async_transaction_create(ipc_call_t *call)
 static errno_t transfer_finished(void *arg, errno_t error, size_t transferred_size)
 {
 	async_transaction_t *trans = arg;
+	/*if (trans->request.endpoint == 3) log_msg(LOG_DEFAULT, LVL_NOTE, "transfer_finished on EP 3");*/
+	/*fibril_usleep(50000);*/
 	const errno_t err = async_answer_1(&trans->call, error, transferred_size);
 	async_transaction_destroy(trans);
 	return err;

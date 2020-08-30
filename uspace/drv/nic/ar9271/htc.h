@@ -301,6 +301,7 @@ extern errno_t htc_init(htc_device_t *);
 extern errno_t htc_init_new_vif(htc_device_t *);
 extern errno_t htc_read_control_message(htc_device_t *, void *, size_t, size_t *);
 extern errno_t htc_read_data_message(htc_device_t *, void *, size_t, size_t *);
+extern errno_t htc_clear_halt(htc_device_t *);
 extern errno_t htc_send_control_message(htc_device_t *, void *, size_t, uint8_t);
 extern errno_t htc_send_data_message(htc_device_t *, void *, size_t, uint8_t);
 

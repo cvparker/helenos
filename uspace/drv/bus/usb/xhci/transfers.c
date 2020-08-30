@@ -259,6 +259,22 @@ static errno_t schedule_bulk_intr(xhci_hc_t *hc, xhci_transfer_t *transfer)
 	xhci_trb_t trbs[trb_count];
 	size_t trbs_used = 0;
 
+	/*if((transfer->batch.target.address == 1) && (transfer->batch.dir == USB_DIRECTION_IN)) {
+		usb_log_info("Scheduling a bulk IN transfer, address is %" PRIu16 ", endpoint is %" PRIu16 ", use_streams is %" PRIu8 ".",
+			transfer->batch.target.address, transfer->batch.target.endpoint, (uint8_t)use_streams);
+
+		xhci_device_t *dev = xhci_device_get(ep->base.device);
+		uint64_t *my_iterator = (uint64_t *)dev->dev_ctx.virt;
+		size_t i;
+		for (i = 0; i < 32; i += 4)
+		{
+			usb_log_info("%016" PRIx64 "%016" PRIx64 "%016" PRIx64 "%016" PRIx64, uint64_t_be2host(my_iterator[i]), uint64_t_be2host(my_iterator[i + 1]), uint64_t_be2host(my_iterator[i + 2]), uint64_t_be2host(my_iterator[i + 3]));
+		}
+		hc_drop_endpoint(ep);
+		hc_add_endpoint(ep);
+		usb_log_info("We are past the point of trying the hc_update_endpoint.");
+	}*/
+
 	while (splitter.remaining > 0)
 		trb_split_next(&trbs[trbs_used++], &splitter);
 

@@ -37,6 +37,7 @@
 #include <errno.h>
 #include <nic.h>
 #include <ieee80211.h>
+#include <str_error.h>
 #include "hw.h"
 #include "wmi.h"
 
@@ -157,6 +158,7 @@ static errno_t hw_addr_init(ar9271_t *ar9271)
 		    AR9271_EEPROM_MAC_ADDR_START + i * 4, &value);
 
 		uint16_t two_bytes = uint16_t_be2host(value);
+		usb_log_info("Found: %" PRIx16 ".", two_bytes);
 		ar9271_address.address[2 * i] = two_bytes >> 8;
 		ar9271_address.address[2 * i + 1] = two_bytes & 0xff;
 	}
@@ -165,7 +167,7 @@ static errno_t hw_addr_init(ar9271_t *ar9271)
 
 	errno_t rc = nic_report_address(nic, &ar9271_address);
 	if (rc != EOK) {
-		usb_log_error("Failed to report NIC HW address.\n");
+		usb_log_error("Failed to report NIC HW address error: %s.\n", str_error_name(rc));
 		return rc;
 	}
 

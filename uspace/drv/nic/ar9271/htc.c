@@ -207,6 +207,20 @@ errno_t htc_read_data_message(htc_device_t *htc_device, void *buffer,
 	    buffer_size, transferred_size);
 }
 
+/** Clear halt state on USB device.
+ *
+ * @param htc_device       HTC device structure.
+ *
+ * @return EOK if succeed, error code otherwise.
+ *
+ */
+errno_t htc_clear_halt(htc_device_t *htc_device)
+{
+	ath_t *ath_device = htc_device->ath_device;
+
+	return ath_device->ops->clear_halt(ath_device);
+}
+
 /** Read HTC control message from USB device.
  *
  * @param htc_device       HTC device structure.
@@ -263,9 +277,9 @@ static errno_t htc_connect_service(htc_device_t *htc_device,
 	errno_t rc = htc_send_control_message(htc_device, buffer, buffer_size,
 	    htc_device->endpoints.ctrl_endpoint);
 	if (rc != EOK) {
-		free(buffer);
+		/*free(buffer);*/
 		usb_log_error("Failed to send HTC message. Error: %s\n", str_error_name(rc));
-		return rc;
+		/*return rc;*/
 	}
 
 	free(buffer);
@@ -398,9 +412,14 @@ static errno_t htc_check_ready(htc_device_t *htc_device)
 	size_t buffer_size = htc_device->ath_device->ctrl_response_length;
 	void *buffer = malloc(buffer_size);
 
+	struct timespec now;
+	getuptime(&now);
+	usb_log_info("Attempting to receive HTC check ready message at %llu.%08lu.", now.tv_sec, now.tv_nsec);
 	/* Read response from device. */
 	errno_t rc = htc_read_control_message(htc_device, buffer, buffer_size,
 	    NULL);
+	getuptime(&now);
+	usb_log_info("Finished read attempt at %llu.%08lu.", now.tv_sec, now.tv_nsec);
 	if (rc != EOK) {
 		free(buffer);
 		usb_log_error("Failed to receive HTC check ready message. "
@@ -452,27 +471,45 @@ errno_t htc_device_init(ath_t *ath_device, ieee80211_dev_t *ieee80211_dev,
  */
 errno_t htc_init(htc_device_t *htc_device)
 {
-	int attempt_number = 5;
 	errno_t rc;
-
+#if 0
+	int attempt_number = 5;
 	/* First check ready message in device. */
-	while((rc = htc_check_ready(htc_device)) != EOK) {
+	while(((rc = htc_check_ready(htc_device)) != EOK) || (attempt_number == 5)) {
 		usb_log_error("Device is not in ready state after loading "
-			"firmware.\n");
+			"firmware, ERROR: %s.\n", str_error_name(rc));
 		attempt_number--;
-		if (attempt_number <= 0)
+		if (attempt_number <= 0) {
+			usb_log_error("Too many tries, aborting.");
 			return rc;
+		}
+		/*usb_log_info("Attempting to clear halt state.");
+		rc = htc_clear_halt(htc_device);
+		if (rc != EOK) {
+			usb_log_error("Failed to clear halt state. Error: %s", str_error_name(rc));
+			return rc;
+		}*/
+		usb_log_info("Waiting for next attempt number %d.", attempt_number);
 		fibril_sleep(1);
+		usb_log_info("Wait complete.");
 	}
-
+#else
+	rc = htc_check_ready(htc_device);
+	usb_log_info("htc_check_ready was %s.", str_error_name(rc));
+#endif /* 0 */
 	/*
 	 * HTC services initialization start.
 	 */
-	rc = htc_connect_service(htc_device, WMI_CONTROL_SERVICE,
-	    &htc_device->endpoints.wmi_endpoint);
-	if (rc != EOK) {
-		usb_log_error("Error while initalizing WMI service.\n");
-		return rc;
+	rc = EAGAIN;
+	while (rc != EOK) {
+		usb_log_info("Attempt to initialize WMI service.");
+		rc = htc_connect_service(htc_device, WMI_CONTROL_SERVICE,
+		    &htc_device->endpoints.wmi_endpoint);
+		if (rc != EOK) {
+			usb_log_error("Error while initalizing WMI service.\n");
+			/*return rc;*/
+			fibril_usleep(100*1000);
+		}
 	}
 
 	rc = htc_connect_service(htc_device, WMI_BEACON_SERVICE,

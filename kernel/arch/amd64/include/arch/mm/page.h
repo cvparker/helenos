@@ -201,8 +201,8 @@ typedef struct {
 	unsigned int global : 1;
 	unsigned int soft_valid : 1;  /**< Valid content even if present bit is cleared. */
 	unsigned int avl : 2;
-	unsigned int addr_12_31 : 30;
-	unsigned int addr_32_51 : 21;
+	unsigned int addr_12_31 : 20;
+	unsigned int addr_32_51 : 31;
 	unsigned int no_execute : 1;
 } __attribute__((packed)) pte_t;
 

@@ -912,7 +912,11 @@ errno_t hc_address_device(xhci_device_t *dev)
 
 	xhci_device_ctx_t *device_ctx = dev->dev_ctx.virt;
 	dev->base.address = XHCI_SLOT_DEVICE_ADDRESS(*XHCI_GET_SLOT_CTX(device_ctx, hc));
-	usb_log_debug("Obtained USB address: %d.", dev->base.address);
+	/*usb_log_debug("Obtained USB address: %d.", dev->base.address);*/
+
+	/* Now report debugging information for the port */
+	xhci_port_regs_t const * const my_port_reg = &(hc->op_regs->portrs[dev->rh_port-1]);
+	usb_log_debug("Obtained USB address: %d. The root hub port is %" PRIu8 ". portsc:%" PRIx32 " portpmsc: %" PRIx32 " portli: %" PRIx32 " porthlpmc:%" PRIx32 ".", dev->base.address, dev->rh_port, my_port_reg->portsc, my_port_reg->portpmsc, my_port_reg->portli, my_port_reg->porthlpmc);
 
 	return EOK;
 }

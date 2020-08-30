@@ -289,11 +289,20 @@ static errno_t ar9271_data_polling(void *arg)
 	size_t offset = 0;
 	size_t next_offset = 0;
 	size_t transferred_size = 0;
+	/*size_t loop_count_raw = 0;
+	size_t loop_count_counted = 0;
+	size_t loop_error_count = 0;*/
 
 	while (true) {
 		offset = next_offset;
+		/*if((loop_count_raw++ - loop_count_counted) > 100)
+		{
+			loop_count_counted = loop_count_raw;
+			usb_log_info("Loop interations: %zu, errors: %zu", loop_count_raw, loop_error_count);
+		}*/
 		/* if the buffer is used up, refill it */
 		if (offset + sizeof(ath_usb_data_header_t) >= transferred_size) {
+			fibril_usleep(10000);
 			if (htc_read_data_message(ar9271->htc_device,
 			    buffer, buffer_size, &transferred_size) == EOK) {
 
@@ -304,6 +313,7 @@ static errno_t ar9271_data_polling(void *arg)
 				}
 
 				if (transferred_size < sizeof(ath_usb_data_header_t)) {
+					usb_log_info("data shorter than header");
 					continue;
 				}
 			}
@@ -325,6 +335,7 @@ static errno_t ar9271_data_polling(void *arg)
 			}
 
 			if (transferred_size - offset < strip_length) {
+				usb_log_info("stripped packet has no context");
 				continue;
 			}
 
@@ -354,6 +365,8 @@ static errno_t ar9271_data_polling(void *arg)
 			}*/
 
 			if (ar9271_rx_status_error(rx_status->status)) {
+				/*usb_log_info("packet with error status set");*/
+				/*loop_error_count++;*/
 				continue;
 			}
 
@@ -365,6 +378,7 @@ static errno_t ar9271_data_polling(void *arg)
 		} else /* i.e. offset + full_data_length > transferred_size */ {
 			/* unexpectedely terminated data */
 			/* reset to re-read the buffer for next round */
+			usb_log_info("data shorter than indicated in header");
 			transferred_size = 0;
 		}
 	}
@@ -383,6 +397,7 @@ static errno_t ar9271_ieee80211_set_freq(ieee80211_dev_t *ieee80211_dev,
 {
 	assert(ieee80211_dev);
 
+	/*usb_log_info("call to ar9271_ieee80211_set_freq, freq = %" PRIu16, freq);*/
 	ar9271_t *ar9271 = (ar9271_t *) ieee80211_get_specific(ieee80211_dev);
 
 	wmi_send_command(ar9271->htc_device, WMI_DISABLE_INTR, NULL, 0, NULL);
@@ -415,6 +430,8 @@ static errno_t ar9271_ieee80211_bssid_change(ieee80211_dev_t *ieee80211_dev,
     bool connected)
 {
 	assert(ieee80211_dev);
+
+	/*usb_log_info("call to ar9271_ieee80211_bssid_change, connected = %d", connected);*/
 
 	ar9271_t *ar9271 = (ar9271_t *) ieee80211_get_specific(ieee80211_dev);
 
@@ -464,6 +481,8 @@ static errno_t ar9271_ieee80211_key_config(ieee80211_dev_t *ieee80211_dev,
     ieee80211_key_config_t *key_conf, bool insert)
 {
 	assert(ieee80211_dev);
+
+	/*usb_log_info("call to ar9271_ieee80211_key_config");*/
 
 	ar9271_t *ar9271 = (ar9271_t *) ieee80211_get_specific(ieee80211_dev);
 
@@ -583,6 +602,8 @@ static errno_t ar9271_ieee80211_tx_handler(ieee80211_dev_t *ieee80211_dev,
 {
 	assert(ieee80211_dev);
 
+	/*usb_log_info("call to ar9271_ieee80211_tx_handler, buffer_size = %zu", buffer_size);*/
+
 	size_t complete_size;
 	size_t offset;
 	void *complete_buffer;
@@ -671,6 +692,8 @@ static errno_t ar9271_ieee80211_tx_handler(ieee80211_dev_t *ieee80211_dev,
 static errno_t ar9271_ieee80211_start(ieee80211_dev_t *ieee80211_dev)
 {
 	assert(ieee80211_dev);
+
+	/*usb_log_info("call to ar9271_ieee80211_start");*/
 
 	ar9271_t *ar9271 = (ar9271_t *) ieee80211_get_specific(ieee80211_dev);
 
@@ -809,6 +832,21 @@ static errno_t ar9271_upload_fw(ar9271_t *ar9271)
 {
 	usb_device_t *usb_device = ar9271->usb_device;
 
+	/* Before uploading firmware we need to ensure that the device is in
+		the configured state. */
+	const void *config_descriptor_raw =
+	    usb_device_descriptors(usb_device)->full_config;
+	const usb_standard_configuration_descriptor_t *config_descriptor =
+	    config_descriptor_raw;
+	usb_pipe_t *ctrl_pipe = usb_device_get_default_pipe(usb_device);
+	errno_t rc = usb_request_set_configuration(ctrl_pipe,
+		config_descriptor->configuration_number);
+	if (rc != EOK) {
+		usb_log_error("Failed to set device configuration: %s.",
+			str_error(rc));
+		return rc;
+	}
+
 	/* TODO: Set by maximum packet size in pipe. */
 	static const size_t MAX_TRANSFER_SIZE = 512;
 
@@ -842,8 +880,7 @@ static errno_t ar9271_upload_fw(ar9271_t *ar9271)
 	while (remain_size > 0) {
 		size_t chunk_size = min(remain_size, MAX_TRANSFER_SIZE);
 		memcpy(buffer, current_data, chunk_size);
-		usb_pipe_t *ctrl_pipe = usb_device_get_default_pipe(usb_device);
-		errno_t rc = usb_control_request_set(ctrl_pipe,
+		rc = usb_control_request_set(ctrl_pipe,
 		    USB_REQUEST_TYPE_VENDOR,
 		    USB_REQUEST_RECIPIENT_DEVICE,
 		    AR9271_FW_DOWNLOAD,
@@ -870,8 +907,8 @@ static errno_t ar9271_upload_fw(ar9271_t *ar9271)
 	 * This should initiate creating confirmation message in
 	 * device side buffer which we will check in htc_check_ready function.
 	 */
-	usb_pipe_t *ctrl_pipe = usb_device_get_default_pipe(usb_device);
-	errno_t rc = usb_control_request_set(ctrl_pipe,
+	ctrl_pipe = usb_device_get_default_pipe(usb_device);
+	rc = usb_control_request_set(ctrl_pipe,
 	    USB_REQUEST_TYPE_VENDOR,
 	    USB_REQUEST_RECIPIENT_DEVICE,
 	    AR9271_FW_DOWNLOAD_COMP,
@@ -884,10 +921,12 @@ static errno_t ar9271_upload_fw(ar9271_t *ar9271)
 		return rc;
 	}
 
-	usb_log_info("Firmware uploaded successfully.\n");
+	struct timespec now;
+	getuptime(&now);
+	usb_log_info("Firmware uploaded successfully at %llu.%09lu.\n", now.tv_sec, now.tv_nsec);
 
 	/* Wait until firmware is ready - wait for 1 second to be sure. */
-	fibril_sleep(1);
+	fibril_usleep(1000);
 
 	return rc;
 }

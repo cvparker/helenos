@@ -43,6 +43,7 @@ typedef struct {
 	errno_t (*read_ctrl_message)(struct ath *, void *, size_t, size_t *);
 	errno_t (*send_data_message)(struct ath *, void *, size_t);
 	errno_t (*read_data_message)(struct ath *, void *, size_t, size_t *);
+	errno_t (*clear_halt)(struct ath *);
 } ath_ops_t;
 
 /** Atheros wifi device structure */

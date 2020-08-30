@@ -1,0 +1,1 @@
+qemu-system-x86_64 --bios ~/Hacking/EDK2/edk2/Build/OvmfX64/DEBUG_GCC5/FV/OVMF.fd -enable-kvm -m 512 -cpu host -boot d -drive file=myimage.img,format=raw -cdrom image.iso -device qemu-xhci -usb -device usb-mouse -device usb-kbd -machine q35 -serial mon:stdio -device usb-host,vendorid=0x0cf3,productid=0x9271

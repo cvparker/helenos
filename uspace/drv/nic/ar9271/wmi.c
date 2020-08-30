@@ -262,7 +262,15 @@ errno_t wmi_send_command(htc_device_t *htc_device, wmi_command_t command_id,
 	/* Read response. */
 	/* TODO: Ignoring WMI management RX messages ~ TX statuses etc. */
 	uint16_t cmd_id;
+	bool first_try = true;
+	size_t loop_count = 0;
 	do {
+		struct timespec ts;
+		getrealtime(&ts);
+		usb_log_error("wmi_send_command reading response at %lld.%.09ld", ts.tv_sec, ts.tv_nsec);
+		if(!first_try) fibril_usleep(10);
+		first_try = false;
+		usb_log_error("wmi_send_command response check %zu.", loop_count++);
 		rc = htc_read_control_message(htc_device, response_buffer,
 		    response_buffer_size, NULL);
 		if (rc != EOK) {

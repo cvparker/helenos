@@ -385,6 +385,8 @@ static void setup_control_ep_ctx(xhci_endpoint_t *ep, xhci_ep_ctx_t *ctx)
 	XHCI_EP_ERROR_COUNT_SET(*ctx, 3);
 	XHCI_EP_TR_DPTR_SET(*ctx, ep->ring.dequeue);
 	XHCI_EP_DCS_SET(*ctx, 1);
+
+	XHCI_EP_AVG_TRB_LENGTH_SET(*ctx, 8); /* Recommended default from XHCI spec */
 }
 
 /**
@@ -402,6 +404,8 @@ static void setup_bulk_ep_ctx(xhci_endpoint_t *ep, xhci_ep_ctx_t *ctx)
 	XHCI_EP_MAX_P_STREAMS_SET(*ctx, 0);
 	XHCI_EP_TR_DPTR_SET(*ctx, ep->ring.dequeue);
 	XHCI_EP_DCS_SET(*ctx, 1);
+
+	XHCI_EP_AVG_TRB_LENGTH_SET(*ctx, 3000); /* Recommended default from XHCI spec */
 }
 
 /**
@@ -422,6 +426,8 @@ static void setup_isoch_ep_ctx(xhci_endpoint_t *ep, xhci_ep_ctx_t *ctx)
 
 	XHCI_EP_MAX_ESIT_PAYLOAD_LO_SET(*ctx, ep->isoch->max_size & 0xFFFF);
 	XHCI_EP_MAX_ESIT_PAYLOAD_HI_SET(*ctx, (ep->isoch->max_size >> 16) & 0xFF);
+
+	XHCI_EP_AVG_TRB_LENGTH_SET(*ctx, 3000); /* Recommended default from XHCI spec */
 }
 
 /**
@@ -435,11 +441,13 @@ static void setup_interrupt_ep_ctx(xhci_endpoint_t *ep, xhci_ep_ctx_t *ctx)
 	XHCI_EP_MAX_PACKET_SIZE_SET(*ctx, ep->base.max_packet_size & 0x07FF);
 	XHCI_EP_MAX_BURST_SIZE_SET(*ctx, ep->max_burst - 1);
 	XHCI_EP_MULT_SET(*ctx, 0);
-	XHCI_EP_ERROR_COUNT_SET(*ctx, 3);
+	XHCI_EP_ERROR_COUNT_SET(*ctx, 0);
 	XHCI_EP_TR_DPTR_SET(*ctx, ep->ring.dequeue);
 	XHCI_EP_DCS_SET(*ctx, 1);
 	XHCI_EP_INTERVAL_SET(*ctx, fnzb32(ep->interval) % 32);
 	// TODO: max ESIT payload
+	XHCI_EP_MAX_ESIT_PAYLOAD_LO_SET(*ctx, (ep->max_burst*ep->base.max_packet_size) & 0xFFFF);
+	XHCI_EP_AVG_TRB_LENGTH_SET(*ctx, (ep->max_burst*ep->base.max_packet_size) & 0xFFFF); /*What Linux seems to use? */ /* Recommended default from XHCI spec */
 }
 
 /** Type of endpoint context configuration function. */
